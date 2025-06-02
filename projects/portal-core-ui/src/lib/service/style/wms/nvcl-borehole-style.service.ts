@@ -111,7 +111,7 @@ export class NVCLBoreholeStyleService {
             if (filter.xpath === 'gsmlp:name') {
               const nameFilterXml = `<ogc:PropertyIsLike wildCard="*" singleChar="#" escapeChar="!" matchCase="false">
                 <ogc:PropertyName>${filter.xpath}</ogc:PropertyName>
-                <ogc:Literal>${filter.value || '*'}</ogc:Literal>
+                <ogc:Literal>*${filter.value}*</ogc:Literal>
               </ogc:PropertyIsLike>`;
               filterParts.push(nameFilterXml);
             }
