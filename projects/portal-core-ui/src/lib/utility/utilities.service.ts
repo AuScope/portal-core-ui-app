@@ -490,8 +490,9 @@ export class UtilitiesService {
      * Returns true iff (if and only if) this is an ESRI ArcGIS server
      * @param onlineResource online resource record for service
      */
-    public static resourceIsArcGIS(onlineResource: OnlineResourceModel) {
-        return (onlineResource.applicationProfile && onlineResource.applicationProfile.indexOf('Esri:ArcGIS Server') > -1);
+    public static resourceIsArcGIS(onlineResource: OnlineResourceModel): boolean {
+        return ((onlineResource?.applicationProfile.indexOf('Esri:ArcGIS Server') > -1) ||
+                        (onlineResource?.url.indexOf('arcgis') > -1));
     }
 
     /**

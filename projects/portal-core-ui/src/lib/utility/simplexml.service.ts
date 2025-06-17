@@ -376,6 +376,10 @@ export class SimpleXMLService {
                   name = feature.onlineResource.name;
                 }
               }
+              // QLD Mineral Tenements ArcGIS has "Null" identifier, use name instead
+              if (name == "Null") {
+                name = features[i].getAttribute('name');
+              }
               if (name.indexOf('http://') === 0) {
                 name = name.substring(name.lastIndexOf('/') + 1, name.length);
               }
@@ -399,31 +403,33 @@ export class SimpleXMLService {
           features = featureMembers[0].childNodes;
         }
       }
-      for (let featureNode of features) {
-        // VT: We will try get the name either via gml:id, gml:name or fid
-        let name = featureNode.getAttribute('gml:id');
-        if (UtilitiesService.isEmpty(name)) {
-          name = SimpleXMLService.evaluateXPath(rootNode, featureNode, 'gml:name', Constants.XPATH_STRING_TYPE).stringValue;
+      if (features) {
+        for (let featureNode of features) {
+          // VT: We will try get the name either via gml:id, gml:name or fid
+          let name = featureNode.getAttribute('gml:id');
           if (UtilitiesService.isEmpty(name)) {
-            // VT: geological province Is there a better way to do this? If this gets tiresome, we will default it to just using name
-            if (featureNode.childNodes !== undefined &&
-              featureNode.childNodes[0] !== undefined &&
-              featureNode.childNodes[0].hasOwnProperty('getAttribute')) {
-              name = featureNode.childNodes[0].getAttribute('fid');
-            }
+            name = SimpleXMLService.evaluateXPath(rootNode, featureNode, 'gml:name', Constants.XPATH_STRING_TYPE).stringValue;
             if (UtilitiesService.isEmpty(name)) {
-              name = feature.onlineResource.name + '.' + Math.floor(Math.random() * 60) + 1;
+              // VT: geological province Is there a better way to do this? If this gets tiresome, we will default it to just using name
+              if (featureNode.childNodes !== undefined &&
+                featureNode.childNodes[0] !== undefined &&
+                featureNode.childNodes[0].hasOwnProperty('getAttribute')) {
+                name = featureNode.childNodes[0].getAttribute('fid');
+              }
+              if (UtilitiesService.isEmpty(name)) {
+                name = feature.onlineResource.name + '.' + Math.floor(Math.random() * 60) + 1;
+              }
             }
           }
-        }
-        if (typeof name === 'string' && name.length > 0) {
-          docs.push({
-            key: name,
-            layer: feature.layer,
-            onlineResource: feature.onlineResource,
-            value: featureNode,
-            format: 'XML'
-          });
+          if (typeof name === 'string' && name.length > 0) {
+            docs.push({
+              key: name,
+              layer: feature.layer,
+              onlineResource: feature.onlineResource,
+              value: featureNode,
+              format: 'XML'
+            });
+          }
         }
       }
     }
