@@ -135,6 +135,7 @@ export class CsMapService {
       for (const layerModel of this.layerModelList) {
         if (!UtilitiesService.layerContainsResourceType(layerModel, ResourceType.WMS) &&
             !UtilitiesService.layerContainsResourceType(layerModel, ResourceType.WWW) &&
+            !UtilitiesService.layerContainsResourceType(layerModel, ResourceType.KML) &&
             !UtilitiesService.layerContainsBboxGeographicElement(layerModel)) {
           continue;
         }
@@ -472,12 +473,15 @@ export class CsMapService {
    * @returns true if a layer supports opacity, false otherwise
    */
   public layerHasOpacity(layer: LayerModel): boolean {
+    console.log("[cs-map.service]layerHasOpacity.layer=",layer);
     if (this.layerExists(layer.id)) {
       if (UtilitiesService.layerContainsResourceType(layer, ResourceType.WMS) || 
           UtilitiesService.layerContainsBboxGeographicElement(layer)) {
+            console.log("[cs-map.service]layerHasOpacity.TRUE");
         return true;
       }
     }
+    console.log("[cs-map.service]layerHasOpacity.FALSE");
     return false;
   }
 

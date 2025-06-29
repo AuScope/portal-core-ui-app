@@ -1,6 +1,6 @@
 
 import { throwError as observableThrowError, Observable } from 'rxjs';
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient, HttpResponse } from '@angular/common/http';
 import { catchError, map } from 'rxjs/operators';
 
@@ -8,10 +8,11 @@ import { OnlineResourceModel } from '../../model/data/onlineresource.model';
 import { LayerModel } from '../../model/data/layer.model';
 import { LayerHandlerService } from '../cswrecords/layer-handler.service';
 import { MapsManagerService } from '@auscope/angular-cesium';
-import { ResourceType } from '../../utility/constants.service';
+import { Constants, ResourceType } from '../../utility/constants.service';
 import { RenderStatusService } from '../cesium-map/renderstatus/render-status.service';
 import { KMLDocService } from './kml.service';
 import { UtilitiesService } from '../../utility/utilities.service';
+import { Color, ColorMaterialProperty, Rectangle } from 'cesium';
 
 // NB: Cannot use "import { XXX, YYY, ZZZ, Color } from 'cesium';" - it prevents initialising ContextLimits.js properly
 // which causes a 'DeveloperError' when trying to draw the KML 
@@ -28,11 +29,14 @@ export class CsKMLService {
   // Number of KML resources added for a given layer
   private numberOfResourcesAdded: Map<string, number> = new Map<string, number>();
 
+  private overlayDoc: Node; // used to make a temporary copy of <GroundOverlay> for restoring to layer.kmlDoc 
+
   constructor(private layerHandlerService: LayerHandlerService,
     private http: HttpClient,
     private renderStatusService: RenderStatusService,
     private mapsManagerService: MapsManagerService,
-    private kmlService: KMLDocService) {
+    private kmlService: KMLDocService,
+    @Inject('env') private env) {
   }
 
   /**
@@ -51,6 +55,55 @@ export class CsKMLService {
       }
     ));
   }
+
+
+  /**
+   * gets the icon from the KML if the url is http...
+   *
+   * @param kmlResource KML resource to be fetched
+   * @returns icon object (url and rectangle coords)
+   */
+
+  private getIcon(kmlDoc: Document): any {
+    let result = {};
+    let gos = kmlDoc.querySelectorAll("GroundOverlay");
+    if (gos) {
+      gos.forEach(go => {
+        let iconEntity = go.querySelector("Icon");
+        let iconURL = iconEntity.querySelector('href').textContent;
+        if (iconURL.toLowerCase().startsWith("http")) {
+          let rectEntity = go.querySelector("LatLonBox");
+          let north = rectEntity.querySelector('north').textContent;
+          let south = rectEntity.querySelector('south').textContent;
+          let east = rectEntity.querySelector('east').textContent;
+          let west = rectEntity.querySelector('west').textContent;
+          result = { url: iconURL, rectangle: { north: north, south: south, east: east, west: west } };
+        }
+      });
+    }
+    return result;
+  }
+
+
+  /**
+   * removes the <GroundOverlay> element from the kml document
+   *
+   * @param kmlResource KML resource to be fetched
+   * @returns updated kml document and saves the removed nodes to overlayDoc
+   */
+
+  private removeOverlay(kmlDoc: Document): Document {
+    let gos = kmlDoc.querySelectorAll("GroundOverlay");
+    if (gos) {
+      gos.forEach(go => {
+        // backup <GroundOverlay> and restore after the kml source is loaded 
+        this.overlayDoc = go.cloneNode(true);
+        go.remove();
+      });
+    }
+    return kmlDoc;
+  }
+
 
   /**
    * Add the KML layer
@@ -96,11 +149,57 @@ export class CsKMLService {
       // note: KML and KMZ, loaded either from a local file or url now have
       // a layer.kmlDoc entry - so some of the following code is redundant
       if (layer.kmlDoc) {
-        source.load(layer.kmlDoc).then(dataSource => {
+        var iconObject = this.getIcon(layer.kmlDoc);
+        // TODO: remove <GroundOverlay> from the kml before the sourse is loaded!!
+        //       elements still to handle: name, description, rotation
+        let overlayRect;
+        let kmlDoc = layer.kmlDoc;
+        if (iconObject.rectangle) {
+          overlayRect = Rectangle.fromDegrees(iconObject.rectangle.west, iconObject.rectangle.south, iconObject.rectangle.east, iconObject.rectangle.north);
+          // remove <GroundOverlay> from KML
+          kmlDoc = this.removeOverlay(layer.kmlDoc);
+        }
+        source.load(kmlDoc).then(dataSource => {
           if (this.cancelledLayers.indexOf(layer.id) === -1) {
-            viewer.dataSources.add(dataSource).then(dataSrc => {
+            let overlayProvider;
+            viewer.dataSources.add(dataSource).then(async dataSrc => {
               layer.csLayers.push(dataSrc);
-              this.incrementLayersAdded(layer, 1);
+
+              if (!iconObject.url) {
+                this.incrementLayersAdded(layer, 1);
+              } else {
+                this.incrementLayersAdded(layer, 2);
+
+                const layers = viewer.scene.imageryLayers;
+                // Use the proxy
+                const proxyUrl = this.env.portalBaseUrl + Constants.PROXY_API + "?usewhitelist=false&url=" + iconObject.url;
+                overlayProvider = new Cesium.SingleTileImageryProvider({
+                  url: proxyUrl,
+                  layers: layer.name,
+                  rectangle: overlayRect,
+                  credit: "credit for the data source",
+                });
+
+                setTimeout(() => {
+                  viewer.camera.flyTo({ destination: overlayRect });
+                }, 100);
+
+                setTimeout(() => {
+                  if (overlayProvider.ready) {
+                    try {
+                      // restore kmlDoc, i.e. add back <GroundOverlay>
+                      layer.kmlDoc.querySelector("Folder").appendChild(this.overlayDoc);
+                      var newLayer = viewer.imageryLayers.addImageryProvider(overlayProvider);
+                      layer.csLayers.push(newLayer);
+                    } catch (error) {
+                      // Handle error
+                      console.log(`(timeout)There was an error while creating the imagery layer. ${error}`);
+                    }
+                  }
+                }, 2000);
+
+              }
+
             });
           }
         });
@@ -114,7 +213,7 @@ export class CsKMLService {
           source.load(onlineResource.url).then(dataSource => {
             viewer.dataSources.add(dataSource).then(dataSrc => {
               layer.csLayers.push(dataSrc);
-              this.incrementLayersAdded(layer,  kmlOnlineResources.length);
+              this.incrementLayersAdded(layer, kmlOnlineResources.length);
             });
           });
 
@@ -176,8 +275,12 @@ export class CsKMLService {
     this.cancelLayerAdded(layer.id);
 
     const viewer = this.getViewer();
-    for (const dataSrc of layer.csLayers) {
-      viewer.dataSources.remove(dataSrc);
+    for (const viewerObject of layer.csLayers) {
+      if (viewerObject.constructor && viewerObject.constructor.name === "KmlDataSource") { viewer.dataSources.remove(viewerObject); }
+      if (viewerObject.constructor && viewerObject.constructor.name === "ImageryLayer") {
+        const layers = viewer.scene.imageryLayers;
+        viewer.imageryLayers.remove(viewerObject);
+      }
     }
     layer.csLayers = [];
     this.renderStatusService.resetLayer(layer.id);
