@@ -17,7 +17,7 @@ steps:
 - task: NodeTool@0
   inputs:
     versionSource: 'spec'
-    versionSpec: '18.x'
+    versionSpec: '22.x'
   displayName: 'Install Node.js'
 - script: |
     git config --global user.email 'azdo-ci@geoanalytics.group'
@@ -32,8 +32,8 @@ steps:
   condition: ne(variables['Build.Reason'], 'PullRequest')
   displayName: 'Bump package version'
 - script: |
-    npm install -g npm@9
-    npm install -g @angular/cli@15
+    npm install -g npm@11
+    npm install -g @angular/cli@20
     npm install
     ng build --configuration production portal-core-ui
   displayName: 'npm install and build'
