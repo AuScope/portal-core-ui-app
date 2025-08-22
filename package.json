@@ -52,7 +52,7 @@
     "@angular/language-service": "^20.1.6",
     "@types/jasmine": "~4.3.0",
     "@types/jasminewd2": "~2.0.10",
-    "@types/node": "^17.0.45",
+    "@types/node": "~24.3.0",
     "@typescript-eslint/eslint-plugin": "^7.2.0",
     "@typescript-eslint/parser": "^7.2.0",
     "eslint": "^8.57.0",
@@ -63,7 +63,7 @@
     "karma-coverage-istanbul-reporter": "~3.0.3",
     "karma-jasmine": "~4.0.2",
     "karma-jasmine-html-reporter": "^1.7.0",
-    "ng-packagr": "^20.1.0",
+    "ng-packagr": "^20.0.0",
     "protractor": "~7.0.0",
     "ts-node": "~8.10.2",
     "typescript": "~5.8.3"
