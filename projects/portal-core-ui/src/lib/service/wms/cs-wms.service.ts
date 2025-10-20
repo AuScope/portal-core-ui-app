@@ -414,7 +414,7 @@ export class CsWMSService {
    * @param lonlatextent longitude latitude extent of the layer as an array [west,south,east,north]
    * @returns the new CesiumJS ImageryLayer object
    */
-  private addCesiumLayer(layer, wmsOnlineResource, params, usePost: boolean, lonlatextent): ImageryLayer {
+  private addCesiumLayer(layer: LayerModel, wmsOnlineResource, params, usePost: boolean, lonlatextent): ImageryLayer {
     const browserInfo = this.deviceService.getDeviceInfo();
     const viewer = this.map.getCesiumViewer();
     const me = this;
@@ -429,8 +429,27 @@ export class CsWMSService {
       // Register tile loading callback function
       this.tileLoadUnsubscribes[wmsOnlineResource.url] = viewer.scene.globe.tileLoadProgressEvent.addEventListener(tileLoading);
 
+      // Remove parameters from URL
       const url = UtilitiesService.rmParamURL(wmsOnlineResource.url);
       let wmsImagProv;
+
+      // Patch for South Australian GeoSciML-lite v4.1
+      // Use geoserver's built-in styles in place of SLD_BODY
+      let urlObj = null;
+      try {
+        urlObj = new URL(url);
+      } catch (error) {
+        // skip
+      }
+      if (urlObj?.hostname.endsWith('.sa.gov.au') && wmsOnlineResource.name === 'gsmlp:BoreholeView') {
+        if (layer.id == 'nvcl-v2-borehole') {
+            params.styles = 'Borehole_NVCL';
+        } else {
+            params.styles = 'Borehole_AuScope';
+        }
+        delete params.sld_body;
+      }
+      // End patch
 
       // Set up WMS service
       // If it is ArcGIS do not use proxy as ArcGIS does not work with POST requests
