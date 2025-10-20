@@ -433,8 +433,8 @@ export class CsWMSService {
       const url = UtilitiesService.rmParamURL(wmsOnlineResource.url);
       let wmsImagProv;
 
-      // Patch for South Australian GeoSciML-lite v4.1
-      // Use geoserver's built-in styles in place of SLD_BODY
+      // South Australian Borehole Geoserver does not cache requests with SLD_BODY
+      // parameter, so bypass the cache with 'tiled=false'
       let urlObj = null;
       try {
         urlObj = new URL(url);
@@ -442,14 +442,8 @@ export class CsWMSService {
         // skip
       }
       if (urlObj?.hostname.endsWith('.sa.gov.au') && wmsOnlineResource.name === 'gsmlp:BoreholeView') {
-        if (layer.id == 'nvcl-v2-borehole') {
-            params.styles = 'Borehole_NVCL';
-        } else {
-            params.styles = 'Borehole_AuScope';
-        }
-        delete params.sld_body;
+        params.tiled = false;
       }
-      // End patch
 
       // Set up WMS service
       // If it is ArcGIS do not use proxy as ArcGIS does not work with POST requests
