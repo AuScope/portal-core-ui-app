@@ -107,6 +107,25 @@ export class SldService {
             throw new Error(`Style service ${styleConfig.serviceName} not found`);
           }
 
+          // Patch for South Australian GeoSciML-lite v4.1
+          let url = null;
+          try {
+              url = new URL(onlineResource.url);
+          } catch (error) {
+              // skip
+          }
+          if (url?.hostname.endsWith('.sa.gov.au') && onlineResource.name === 'gsmlp:BoreholeView') {
+              switch(layerId) {
+                case 'nvcl-v2-borehole':
+                    param.gsmlpNamespace = 'http://www.opengis.net/gsml/4.1/geosciml-lite';
+                    break;
+                case 'sf0-borehole-nvcl':
+                    param.gsmlpNamespace = 'http://www.opengis.net/gsml/4.1/geosciml-lite';
+                    break;
+              }
+          }
+          // End patch
+
           // Just merge the params and pass them through
           
           

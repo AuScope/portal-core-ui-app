@@ -414,7 +414,7 @@ export class CsWMSService {
    * @param lonlatextent longitude latitude extent of the layer as an array [west,south,east,north]
    * @returns the new CesiumJS ImageryLayer object
    */
-  private addCesiumLayer(layer, wmsOnlineResource, params, usePost: boolean, lonlatextent): ImageryLayer {
+  private addCesiumLayer(layer: LayerModel, wmsOnlineResource, params, usePost: boolean, lonlatextent): ImageryLayer {
     const browserInfo = this.deviceService.getDeviceInfo();
     const viewer = this.map.getCesiumViewer();
     const me = this;
@@ -429,8 +429,21 @@ export class CsWMSService {
       // Register tile loading callback function
       this.tileLoadUnsubscribes[wmsOnlineResource.url] = viewer.scene.globe.tileLoadProgressEvent.addEventListener(tileLoading);
 
+      // Remove parameters from URL
       const url = UtilitiesService.rmParamURL(wmsOnlineResource.url);
       let wmsImagProv;
+
+      // South Australian Borehole Geoserver does not cache requests with SLD_BODY
+      // parameter, so bypass the cache with 'tiled=false'
+      let urlObj = null;
+      try {
+        urlObj = new URL(url);
+      } catch (error) {
+        // skip
+      }
+      if (urlObj?.hostname.endsWith('.sa.gov.au') && wmsOnlineResource.name === 'gsmlp:BoreholeView') {
+        params.tiled = false;
+      }
 
       // Set up WMS service
       // If it is ArcGIS do not use proxy as ArcGIS does not work with POST requests
