@@ -8,8 +8,9 @@ import { HttpClient, HttpResponse } from '@angular/common/http';
 import { LayerModel} from '../../model/data/layer.model';
 import { OnlineResourceModel } from '../../model/data/onlineresource.model';
 import { ResourceType } from '../../utility/constants.service';
-import { SplitDirection } from 'cesium';
+import { Rectangle, SplitDirection } from 'cesium';
 import { GetCapsService } from '../wms/get-caps.service';
+import bboxPolygon from '@turf/bbox-polygon';
 
 
 /**
@@ -135,7 +136,26 @@ export class LayerHandlerService {
   public makeCustomKMLLayerRecord(name: string, url: string, kmlDoc: {}): LayerModel {
     const id = 'KML_' + name.substring(0, 10) + '_' + Math.floor(Math.random() * 10000).toString();
     const itemLayer = new LayerModel();
-    const cswRec = this.makeCustomKMLCSWRec(name, id, url);
+
+    // if its a GroundOverlay then extract the bbox (rectangle)
+    let overlayRect;
+    var doc : any;
+    doc = kmlDoc;
+    let gos = doc.querySelector("GroundOverlay");
+    if (gos) {
+        let iconEntity = gos.querySelector("Icon");
+        let iconURL = iconEntity.querySelector('href').textContent;
+        if (iconURL.toLowerCase().startsWith("http")) {
+          let rectEntity = gos.querySelector("LatLonBox");
+          let north = rectEntity.querySelector('north').textContent;
+          let south = rectEntity.querySelector('south').textContent;
+          let east = rectEntity.querySelector('east').textContent;
+          let west = rectEntity.querySelector('west').textContent;
+          overlayRect = {west: west, south: south, east: east, north: north};
+        }
+    }
+          
+    const cswRec = this.makeCustomKMLCSWRec(name, id, url, overlayRect);
     itemLayer.cswRecords = [cswRec];
     itemLayer['expanded'] = false;
     itemLayer.id = id;
@@ -233,7 +253,7 @@ export class LayerHandlerService {
    * @param id KML layer id
    * @returns CSWRecordModel object
    */
-  public makeCustomKMLCSWRec(name: string, id: string, url: string): CSWRecordModel {
+  public makeCustomKMLCSWRec(name: string, id: string, url: string, r: any): CSWRecordModel {
     const cswRec = new CSWRecordModel();
     cswRec.adminArea = '';
     cswRec.childRecords = {};
@@ -247,6 +267,14 @@ export class LayerHandlerService {
     cswRec.description = '';
     cswRec.descriptiveKeywords = {};
     cswRec.geographicElements = {};
+    if (r) {
+      //cswRec.geographicElements.push(bboxPolygon([r.east, r.south, r.west, r.north]));
+      cswRec.geographicElements = [{type: "bbox",
+                                    eastBoundLongitude: parseFloat(r.east),
+                                    northBoundLatitude: parseFloat(r.north),
+                                    southBoundLatitude: parseFloat(r.south),
+                                    westBoundLongitude: parseFloat(r.west)}];
+    }
     cswRec.id = id;
     cswRec.name = name;
     cswRec.noCache = true;

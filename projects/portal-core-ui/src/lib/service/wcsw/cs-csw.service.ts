@@ -61,7 +61,10 @@ export class CsCSWService {
   public setLayerOpacity(layer, opacity: number) {
     for (const entity of layer.csLayers) {
       if (entity.rectangle) {
-        entity.rectangle.material = new ColorMaterialProperty(Color.fromAlpha(POLYGON_COLOUR, opacity * POLYGON_ALPHA));
+        // NOTE: todo: GroundOverlay kml doesn't have a mertial property for the rectangle
+        if (entity.rectangle.material) {
+          entity.rectangle.material = new ColorMaterialProperty(Color.fromAlpha(POLYGON_COLOUR, opacity * POLYGON_ALPHA));
+        }
       } else if (entity.label) {
         entity.label.fillColor = Color.fromAlpha(LABEL_COLOUR, opacity);
         entity.label.backgroundColor = Color.fromAlpha(LABEL_BACKGROUND_COLOUR, opacity);
